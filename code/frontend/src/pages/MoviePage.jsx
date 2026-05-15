@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getMovieById, updateMovie, deleteMovie, toggleFavorite, toggleStatus } from '../services/movieService';
+import { getMovie, updateMovie, deleteMovie, getGenres } from '../services/api';
 
 const MoviePage = () => {
   const { id } = useParams();
@@ -8,45 +8,57 @@ const MoviePage = () => {
   const [movie, setMovie] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [editForm, setEditForm] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [genres, setGenres] = useState([]);
 
   useEffect(() => {
-    loadMovie();
+    const loadData = async () => {
+      const genresList = await getGenres();
+      setGenres(genresList);
+      await loadMovie();
+    };
+    loadData();
   }, [id]);
 
-  const loadMovie = () => {
-    const found = getMovieById(id);
-    if (found) {
-      setMovie(found);
-      setEditForm(found);
-    } else {
+  const loadMovie = async () => {
+    setLoading(true);
+    try {
+      const data = await getMovie(id);
+      setMovie(data);
+      setEditForm(data);
+    } catch (error) {
+      console.error('Фильм не найден', error);
       navigate('/');
     }
+    setLoading(false);
   };
 
-  const handleUpdate = () => {
-    updateMovie(id, editForm);
-    loadMovie();
+  const handleUpdate = async () => {
+    await updateMovie(id, editForm);
+    await loadMovie();
     setEditMode(false);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (window.confirm('Удалить фильм навсегда?')) {
-      deleteMovie(id);
+      await deleteMovie(id);
       navigate('/');
     }
   };
 
-  const handleToggleFavorite = () => {
-    toggleFavorite(id);
-    loadMovie();
+  const handleToggleFavorite = async () => {
+    await updateMovie(id, { ...movie, isFavorite: !movie.isFavorite });
+    await loadMovie();
   };
 
-  const handleToggleStatus = () => {
-    toggleStatus(id);
-    loadMovie();
+  const handleToggleStatus = async () => {
+    const newStatus = movie.status === 'watched' ? 'not_watched' : 'watched';
+    await updateMovie(id, { ...movie, status: newStatus });
+    await loadMovie();
   };
 
-  if (!movie) return <div className="loading">Загрузка...</div>;
+  if (loading) return <div className="loading">Загрузка...</div>;
+  if (!movie) return <div className="loading">Фильм не найден</div>;
 
   const renderStars = (rating) => {
     return '⭐'.repeat(rating) + '☆'.repeat(10 - rating);
@@ -96,10 +108,17 @@ const MoviePage = () => {
           </div>
           <div className="form-group">
             <label>Жанр</label>
-            <input
-              value={editForm.genre}
+            <select
+              value={editForm.genre || ''}
               onChange={(e) => setEditForm({ ...editForm, genre: e.target.value })}
-            />
+            >
+              <option value="">-- Выберите жанр --</option>
+              {genres.map(genre => (
+                <option key={genre.id} value={genre.name}>
+                  {genre.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="form-group">
             <label>Описание</label>
@@ -118,6 +137,26 @@ const MoviePage = () => {
               value={editForm.rating}
               onChange={(e) => setEditForm({ ...editForm, rating: parseInt(e.target.value) || 0 })}
             />
+          </div>
+          <div className="form-group">
+            <label>Статус</label>
+            <select
+              value={editForm.status}
+              onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+            >
+              <option value="not_watched">⏳ Не просмотрен</option>
+              <option value="watched">✅ Просмотрен</option>
+            </select>
+          </div>
+          <div className="form-group checkbox">
+            <label>
+              <input
+                type="checkbox"
+                checked={editForm.isFavorite}
+                onChange={(e) => setEditForm({ ...editForm, isFavorite: e.target.checked })}
+              />
+              В избранном
+            </label>
           </div>
           <div className="form-actions">
             <button onClick={handleUpdate} className="btn-submit">💾 Сохранить</button>

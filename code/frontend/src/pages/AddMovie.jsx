@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { addMovie } from '../services/movieService';
+import { createMovie, getGenres } from '../services/api';
 
 const AddMovie = () => {
   const navigate = useNavigate();
+  const [genres, setGenres] = useState([]);
+  const [loadingGenres, setLoadingGenres] = useState(true);
   const [form, setForm] = useState({
     title: '',
     genre: '',
@@ -13,6 +15,16 @@ const AddMovie = () => {
     isFavorite: false
   });
   const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const loadGenres = async () => {
+      const genresList = await getGenres();
+      setGenres(genresList);
+      setLoadingGenres(false);
+    };
+    loadGenres();
+  }, []);
 
   const validate = () => {
     const newErrors = {};
@@ -23,13 +35,19 @@ const AddMovie = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
     
-    addMovie(form);
+    setSaving(true);
+    await createMovie(form);
+    setSaving(false);
     navigate('/');
   };
+
+  if (loadingGenres) {
+    return <div className="loading">Загрузка списка жанров...</div>;
+  }
 
   return (
     <div className="add-movie-page">
@@ -49,12 +67,17 @@ const AddMovie = () => {
 
         <div className="form-group">
           <label>Жанр</label>
-          <input
-            type="text"
-            placeholder="Например: Драма, комедия"
+          <select
             value={form.genre}
             onChange={(e) => setForm({ ...form, genre: e.target.value })}
-          />
+          >
+            <option value="">-- Выберите жанр --</option>
+            {genres.map(genre => (
+              <option key={genre.id} value={genre.name}>
+                {genre.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="form-group">
@@ -104,8 +127,12 @@ const AddMovie = () => {
         </div>
 
         <div className="form-actions">
-          <button type="submit" className="btn-submit">💾 Сохранить фильм</button>
-          <button type="button" className="btn-cancel" onClick={() => navigate('/')}>Отмена</button>
+          <button type="submit" className="btn-submit" disabled={saving}>
+            {saving ? 'Сохранение...' : '💾 Сохранить фильм'}
+          </button>
+          <button type="button" className="btn-cancel" onClick={() => navigate('/')}>
+            Отмена
+          </button>
         </div>
       </form>
     </div>

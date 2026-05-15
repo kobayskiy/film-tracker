@@ -1,40 +1,49 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getAllMovies, deleteMovie, toggleFavorite, toggleStatus } from '../services/movieService';
+import { getMovies, deleteMovie, updateMovie } from '../services/api';
 import MovieCard from '../components/MovieCard';
 
 const Home = () => {
   const [movies, setMovies] = useState([]);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  const loadMovies = () => {
-    const allMovies = getAllMovies();
-    setMovies(allMovies);
+  const loadMovies = async () => {
+    setLoading(true);
+    const data = await getMovies();
+    setMovies(data);
+    setLoading(false);
   };
 
   useEffect(() => {
     loadMovies();
   }, []);
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Удалить фильм?')) {
-      deleteMovie(id);
-      loadMovies();
+      await deleteMovie(id);
+      await loadMovies();
     }
   };
 
-  const handleToggleFavorite = (id) => {
-    toggleFavorite(id);
-    loadMovies();
+  const handleToggleFavorite = async (id) => {
+    const movie = movies.find(m => m.id === id);
+    if (movie) {
+      await updateMovie(id, { ...movie, isFavorite: !movie.isFavorite });
+      await loadMovies();
+    }
   };
 
-  const handleToggleStatus = (id) => {
-    toggleStatus(id);
-    loadMovies();
+  const handleToggleStatus = async (id) => {
+    const movie = movies.find(m => m.id === id);
+    if (movie) {
+      const newStatus = movie.status === 'watched' ? 'not_watched' : 'watched';
+      await updateMovie(id, { ...movie, status: newStatus });
+      await loadMovies();
+    }
   };
 
-  
   const filteredMovies = movies.filter(movie => {
     if (filter === 'watched') return movie.status === 'watched';
     if (filter === 'not_watched') return movie.status === 'not_watched';
@@ -48,6 +57,10 @@ const Home = () => {
   const watchedCount = movies.filter(m => m.status === 'watched').length;
   const notWatchedCount = totalMovies - watchedCount;
   const favoritesCount = movies.filter(m => m.isFavorite).length;
+
+  if (loading) {
+    return <div className="loading">Загрузка фильмов...</div>;
+  }
 
   return (
     <div>

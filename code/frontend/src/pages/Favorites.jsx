@@ -1,35 +1,47 @@
 import React, { useState, useEffect } from 'react';
-import { getAllMovies, toggleFavorite, toggleStatus, deleteMovie } from '../services/movieService';
+import { getMovies, updateMovie, deleteMovie } from '../services/api';
 import MovieCard from '../components/MovieCard';
 
 const Favorites = () => {
   const [favorites, setFavorites] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const loadFavorites = () => {
-    const all = getAllMovies();
+  const loadFavorites = async () => {
+    setLoading(true);
+    const all = await getMovies();
     setFavorites(all.filter(m => m.isFavorite === true));
+    setLoading(false);
   };
 
   useEffect(() => {
     loadFavorites();
   }, []);
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Удалить фильм?')) {
-      deleteMovie(id);
-      loadFavorites();
+      await deleteMovie(id);
+      await loadFavorites();
     }
   };
 
-  const handleToggleFavorite = (id) => {
-    toggleFavorite(id);
-    loadFavorites();
+  const handleToggleFavorite = async (id) => {
+    const movie = favorites.find(m => m.id === id);
+    if (movie) {
+      await updateMovie(id, { ...movie, isFavorite: false });
+      await loadFavorites();
+    }
   };
 
-  const handleToggleStatus = (id) => {
-    toggleStatus(id);
-    loadFavorites();
+  const handleToggleStatus = async (id) => {
+    const movie = favorites.find(m => m.id === id);
+    if (movie) {
+      const newStatus = movie.status === 'watched' ? 'not_watched' : 'watched';
+      await updateMovie(id, { ...movie, status: newStatus });
+      await loadFavorites();
+    }
   };
+
+  if (loading) return <div className="loading">Загрузка...</div>;
 
   return (
     <div>
